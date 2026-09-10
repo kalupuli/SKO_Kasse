@@ -98,9 +98,47 @@
   footer{border-top:1px solid var(--line);margin-top:36px;padding-top:18px;
     font-size:13px;color:var(--ink-2)}
   @media (prefers-reduced-motion:reduce){.bar{transition:none}}
+  /* ---- Passwortschranke ---- */
+  #gate{position:fixed;inset:0;z-index:100;background:#fff;display:grid;place-items:center;
+    padding:24px}
+  #gate form{width:100%;max-width:380px;border:1px solid var(--line);border-radius:4px;
+    padding:32px 30px;text-align:left}
+  #gate .sig{width:44px;height:44px;background:var(--blau);border-radius:3px;display:grid;
+    place-items:center;color:#fff;font-weight:600;font-size:16px;margin-bottom:18px}
+  #gate h2{font-size:22px;font-weight:600;margin:0}
+  #gate .org{font-size:14px;color:var(--ink-2);margin:2px 0 24px}
+  #gate label{display:block;font-size:14px;font-weight:500;margin-bottom:7px}
+  #gate input{width:100%;font-family:inherit;font-size:16px;padding:11px 13px;
+    border:1px solid var(--line);border-radius:4px;background:#fff;color:var(--ink)}
+  #gate input:focus{outline:2px solid var(--blau);outline-offset:-1px;border-color:var(--blau)}
+  #gate button{width:100%;margin-top:14px;font-family:inherit;font-size:16px;font-weight:500;
+    padding:11px 16px;border:1px solid var(--blau);border-radius:4px;background:var(--blau);
+    color:#fff;cursor:pointer}
+  #gate button:hover{background:#1d2880;border-color:#1d2880}
+  #gate button[disabled]{opacity:.6;cursor:default}
+  #gate .msg{font-size:14px;margin:14px 0 0;min-height:1.4em}
+  #gate .msg.err{color:var(--rot)}
+  #gate .hint{font-size:13px;color:var(--ink-2);margin:22px 0 0;padding-top:16px;
+    border-top:1px solid var(--line-2)}
+
 </style>
 </head>
 <body>
+<div id="gate">
+  <form id="gateForm" autocomplete="on">
+    <div class="sig" aria-hidden="true">SK</div>
+    <h2>Kassen-Dashboard</h2>
+    <p class="org">Stadtkapelle Offenburg e.V.</p>
+    <label for="pw">Passwort</label>
+    <input id="pw" type="password" autocomplete="current-password" spellcheck="false" required>
+    <button type="submit" id="gateBtn">Öffnen</button>
+    <p class="msg" id="gateMsg" role="alert"></p>
+    <p class="hint">Die Zahlen sind in dieser Datei verschlüsselt gespeichert und werden erst
+      nach Eingabe des Passworts entschlüsselt.</p>
+  </form>
+</div>
+
+<div id="app" hidden>
 <div class="topbar"><div>Stadtkapelle Offenburg e.V. · Kassenbericht</div></div>
 
 <header>
@@ -122,81 +160,13 @@
 </main>
 
 <div id="tip" role="status"></div>
+</div><!-- /#app -->
 
 <script>
-(function(){
+function boot(JAHRE){
 "use strict";
 
-/* ══════════════════════════════════════════════════════════════
-   DATEN — je Geschäftsjahr ein Eintrag.
-   Neues Jahr ergänzen: Block kopieren und die Werte aus EÜR,
-   Sachkonten-Saldenliste und Vermögensaufstellung eintragen.
-   ══════════════════════════════════════════════════════════════ */
-var JAHRE = [
-{
-  jahr:2023,
-  einnahmen:72025.32, ausgaben:64072.29, ergebnis:7953.03,
-  bereiche:[["Ideeller Bereich",42837.46],["Zweckbetrieb",14680.10],
-            ["Wirtschaftlicher Bereich",14288.07],["Vermögensverwaltung",219.69]],
-  bloecke:[["Personalaufwand",43152.11],["Sonstige Kosten",10814.90],
-           ["Material / Wareneinkauf",6069.40],["Aufwand Vereinsmitglieder",1623.91],
-           ["Energie / Wasser / Heizung",1513.85],["Kosten des Geldverkehrs",353.80],
-           ["Unterhalt Anlagevermögen",331.18],["Gebühren / Abgaben / Steuern",113.14],
-           ["Umsatzsteuer / Sonstiges",100.00]],
-  altpapier:1666.70,
-  miete:[["Miete Ausbildungsinstrumente (254)",432.00],["Instrumentenmiete (266)",272.00]],
-  instr:[["Versicherung Instrumente (835)",2214.99],["Reparatur Instrumente (621)",686.34],
-         ["Instrumente / Anschaffung (620)",190.00]],
-  spenden:[["Spenden (210 + 212)",5563.26],["Sponsoring (545)",3000.00],
-           ["Fördermitglieder (213)",992.00]],
-  vermoegen:{start:6077.00, ende:14030.03, konten:[
-    ["Handkasse",414.71,36.21],["SPK Giro",1430.09,8814.64],["VB Giro",494.65,1036.09],
-    ["SPK Tagesgeld",1.60,2009.93],["SPK Sparbuch",1785.13,0.00],["VB Kaution",1801.34,1805.74],
-    ["Umbuchungen",0.00,0.00],["Verrechnungskonto",149.48,327.42]]}
-},
-{
-  jahr:2024,
-  einnahmen:73997.48, ausgaben:78829.15, ergebnis:-4831.67,
-  bereiche:[["Ideeller Bereich",49550.67],["Wirtschaftlicher Bereich",17825.40],
-            ["Zweckbetrieb",5792.40],["Vermögensverwaltung",829.01]],
-  bloecke:[["Personalaufwand",48387.03],["Sonstige Kosten",9263.24],
-           ["Material / Wareneinkauf",8697.16],["Unterhalt Anlagevermögen",6556.45],
-           ["Energie / Wasser / Heizung",3139.41],["Gebühren / Abgaben / Steuern",1317.84],
-           ["Aufwand Vereinsmitglieder",1204.36],["Kosten des Geldverkehrs",163.66],
-           ["Umsatzsteuer / Sonstiges",100.00]],
-  altpapier:1354.90,
-  miete:[["Instrumentenmiete (266)",760.00],["Miete Ausbildungsinstrumente (254)",82.00]],
-  instr:[["Versicherung Instrumente (835)",2607.87],["Reparatur Instrumente (621)",318.10],
-         ["Instrumente / Anschaffung (620)",167.76]],
-  spenden:[["Spenden (210 + 212)",10458.77],["Sponsoring (545)",2759.24],
-           ["Fördermitglieder (213)",842.00]],
-  vermoegen:{start:14030.03, ende:9198.36, konten:[
-    ["Handkasse",36.21,1096.83],["SPK Giro",8814.64,3239.69],["VB Giro",1036.09,2220.55],
-    ["SPK Tagesgeld",2009.93,520.54],["VB Kaution",1805.74,1855.74],
-    ["Umbuchungen",0.00,50.00],["Verrechnungskonto",327.42,215.01]]}
-},
-{
-  jahr:2025,
-  einnahmen:84573.92, ausgaben:81952.82, ergebnis:2621.10,
-  bereiche:[["Ideeller Bereich",66973.46],["Wirtschaftlicher Bereich",10657.21],
-            ["Zweckbetrieb",5832.56],["Vermögensverwaltung",1110.69]],
-  bloecke:[["Personalaufwand",47952.99],["Sonstige Kosten",21585.52],
-           ["Material / Wareneinkauf",7806.06],["Aufwand Vereinsmitglieder",2243.85],
-           ["Gebühren / Abgaben / Steuern",1762.15],["Unterhalt Anlagevermögen",393.28],
-           ["Kosten des Geldverkehrs",208.97]],
-  altpapier:2142.70,
-  miete:[["Miete Ausbildungsinstrumente (254)",971.00],["Instrumentenmiete (266)",472.00]],
-  instr:[["Versicherung Instrumente (835)",2425.22],["Reparatur Instrumente (621)",1149.38],
-         ["Instrumente / Anschaffung (620)",316.70]],
-  spenden:[["Spenden (210 + 212)",10241.30],["Sponsoring (545)",3000.00],
-           ["Fördermitglieder (213)",992.00]],
-  vermoegen:{start:9199.61, ende:11820.71, konten:[
-    ["Handkasse",1096.83,3837.83],["SPK Giro",3239.69,48.02],["VB Giro",2221.80,5487.19],
-    ["SPK Tagesgeld",520.54,67.68],["VB Kaution",1855.74,2114.98],
-    ["Umbuchungen",50.00,50.00],["Verrechnungskonto",215.01,215.01]]}
-}
-];
-/* ════════════════════════ Ende Daten ════════════════════════ */
+/* Die Jahresdaten liegen verschlüsselt in DATEN (siehe unten). */
 
 var C={s1:"#2f42c4",s2:"#c91515",s3:"#0f8a5f",s4:"#e08a00",s1h:"#aab2e6",
        ink:"#252525",ink2:"#666666",ink3:"#8b8b8b",grid:"#ececec"};
@@ -626,6 +596,62 @@ document.addEventListener("keydown",function(ev){
 });
 
 select(JAHRE[JAHRE.length-1].jahr);
+}
+</script>
+
+<script>
+(function(){
+"use strict";
+var DATEN = {"v": 1, "iter": 250000, "salt": "5xnAQQu+TQVHv6D4BSu18g==", "iv": "VOFJa9gQDUebpVYe", "ct": "TH8K437RHGKkpxBq/w7vgdyerkERqKxKAXatVva9+8CQKKBC7SSLEuXjdwrFmSS6DfJlE7ucMOB4MwOsknnYCFi4FWcaQ3oKxR8Mm6HDkflcfZLCY3l4aTdhezQ15blyK5xV/xpzluUixxdOHgSPoE82MbckpPNjqklhlqK8eMG4FS+g0gSIU3Qp3Bb4l6AbI74Y9gz4Fzj0906KonWpxxbOr4kp3C2TVJvS2881iEGTe3qfr7EbvNDHtMitNrs8drwGq+LlSMPvUVa9Ix4mtgQygf/P+GMmcI5wIySmpXiCudqb7Nr/oXBE9s6zcYxO/EuxW3Q/zBLzEqNAIpMVK8SWgJfj8i/3Ptdj6OvP3YkGMeLKHgBls/sLvlgE5gjItF60jCNhcmcr0h/uaTyEgEI1vs4Xp+TwCxHY7FA+b3Y8vat+bs87P4obv5rpYoCa/a7kfsGRrIs4kAbDYu+/oXwjAPclkcYUZ3RfPt30Z4TEXLuZ/toCTANhJhljpNYsgZ7kalMB3UZG3LRZ/0MkAWZoyQW/DY2IQ1RQI/IXTC5VFIUFMQaNn3DAY3uJwvPPdViDffbIp4MvOyKNtUPLvBLEn5LLtD1cmJtR+exZ9Tc0h9ED/VScFMnl+mIbcuzHha8mGH/7EgRRVu3fHNvD0jINpDsxvG2Al9JXT+Ql7wefnww8AxDp+T0hEEmbj2NHNIuUa9o7n2xzsaFMIcV2dax1WsDTYAD6rRD3sw+sHWLsDN1H+55+58v5LYjEScWGrRsz3iw2MzNi3YF3BuCGSWnXo9+9Cx9vFXXFa1o8AtCFHpA3YCO1q3wGtVfgoJ3oApps29m+HxGXENtdMdxuLOgkiyYB1XFREIhqQNXbiovYsA4IPpIfdNgWqpUMH6427myZrJ+JD0VjsBmYVNoRPbmKk0bzVF/5Nw0bjnHzUNiUM162zsW0UGR0AoIoJxWPQsL/54hYLM/QV2wCShK3KfXUPHSPK3ODvz0JN9F8Lb+4Okj+aj2dMEdBpAmw1DF0u7MrVxh3sqFv1BqFfBG+N69+fRxc7Xbv/Q+DSmxfDus6sBfv6A2GQnvdzHfVXod2GaxyhIDvUXqu6/s3rezXOqrpjz9BGf1rjHqBmAyPYFTdkIdNCxclkEZ04pasZ6ye/s8NeinN7Cwyif9IYaWmxXpCIXmmbX4mNJe4gx4h+iyP1aUzNV85OjPaqycRXW9WSzWVJkZM8XiHrhaYVRE0DCAL+Jj11nfH6OwMe4QLlBqO5B/MPOdtaDEvXKUTxwc+9mPKZ5wojcH3PN27r5aOxF+L0nHqfz/RGNq4EWzNmEmC0esVrdAGhilfcDoc6QB2pA1pYhrcu/YERQ2tOUQ/R5x0WF1WTs38HFYhkkWAK6PrOaSMmczDeFWwRRHgg3e3BPOKjL8wHmJ7DbM+XIWPqLW5Yv3NKulLrkFrW5ztv02/dCQw4sygiBYwdn9GWkNkr4PqyjV07I4vlXxDipIQu5T204I4Qb6ec6tc1GJxz7Cd3mshus6gptYDU/C6A7O5VviRJj32356mV4OwyIfqPV4zE5ioa1Z9RKzfKU+MmRahzuduoixzJmwNYKaoprqPws9Sv4eWAd+IiahyghaT+fUUK0Vo6xS8ZZQkzkZdinrvklTWiQFlg5b3wG4srT2EME/PlU3Jw+sp9g4Ok0w0+J7QzmPva1p7Q8S57o7H5B5FIT6eJQrCus68G8j2N7eWW/W5vrHsuL/FqWUnGO7BmeECB8fM6zGNKd9q3IT2Gb8mV+POHCqy9x2cUIvj8T/IzUZDhAlzYzFMfxOUAL7468db84oCqAJrFXVXAAoIcE0BMcCDdFkPp87FCgR3QDJQKrReOBkpnL9VlEcfYfJkpn5zpYVfuvcYZuU2nrhyjtZuhHRhNO3f36ExQkYdjbSH88NPXz1rYxQyhuHzQJNw+XBvBbDZP2MNrsUs3pi1C7HPBvReMfh/eD7ufALMjmX9MRDik8x8u4NB6e7JyL4J2Ub/FALDoQA70pHNiC7acz1zQl/XTmDpFEU+HHm0yjXAQ8c+t5XWbYnOB5ZBMz680Nw+ba/V3L58Px2hGQS1QFr2AkPg5ngtbaKSkBq+MizI3rSPylgStVqhyArXEauiLVr28NQyN2U6XEaSNktRYHL8r8+v962Rea3DxlUqI0CdeGs33Xapnr6Ojyi7KiXHBnIP/sFIImWdldSwdf9Hj3is+2W1PVntIiwxS5lY/VXr3Qzd7l/0UEFB2yMwJH66Ce0kGkcEOrqr+BEYSBn6mdbAdYkoQah703hQ59O0XTWWP/+uDGvGU5W40TR+q/3YYgnhoE8TBNiFxpemLBMsq5WVUldeuDO/nZ1P9lLwNoTRL3cQJM7CHBzK89uzjbxaH7SARf801wle9jOh2xWd0QxKZged9DKTUn0qjSvfv6i96yEWATaua9ndYEEMuyPA8loAdmKkItdv2lQh6CmGRP8m83R8GYrGlXi5+Fxm4+8+PJkDpaoDgaxVNeDP7L8lJlQ/bH3nU+3UjjBrbmwcWHlpxkdzjGiUCzrN2j3rO2PPf35Jxx9GI3Rbu71UW1NnDPlOh9TonDBoS0pLLangsm29voA+bGs/B+I1ZYyHWjwPpEv+dzTtlMI+yWiOM5cIUwwYhBi9G1qiyv/oapmaOV8U2Ly4G25ItC0ZkFS2266Bovx1X2/8th5twT9IPderhOSFobJ4vx+tYlPD43ckmstCeqf9+gHt2/KN5ZsUVl9pw7SiI2Bg4oE0S0AbsbGJOBdPxy2hYtDMwwbzzhOJA0QgIWLfMUN9J4HHETfT4ceSLwWFi7IJLM8Xwh1XXOQdBEbQaYc3SodKc4w6QmfJL9a4EQrIjG9KEJJb7A8hLAIG3Jc6s6x+9lPzEnKFySQf0TNOIfu1JpvbdSYLoMoPFOWFYRE43rtg+X1rsYvJMyznPl4wNeQnV9jiPdwdjANjiyN2i3dTUaQnWEA90beYZ2AOczL8ILFEIr/Qw/t5BMgCWoicIUQT0dd83K+OF8J7noO6CVLBWmbwMFeAHGB501JOGr+Lw/QmJfo5YkjKMha2W1TVNBZUHWnqCPMISElkvEIxIjrqeVuIhqm75SuovAUC4bovDX7d5/m+XfyhHIPTnJVFHKQJ0WMDFJFP9BS4odJThE/I2UB2UEiPO0ZAkYmumVzvfwC0CP5eajpuzKlYsf0yNQnJZ/fDvufmmPRBtBLPksorT1K2UEk32lhzG9KJjcLT1MCNCf5FP+Iw8QOSDkyBvm2HAw7Xkcxp6GKVzXneE4t8HjlbNvTzyaCz0vNAEeEXxzt94RB5OhpfWIuikxHGj/kCYjZv4rof3AmtbWUhjVqpZgWHBGx+XmfVk6Ojg29ye4Grj/J891f6H/7uRP6OcBfiQ8puZ/4V525PkNVmUi4uA7VFd1eJBGDSHjY6V7r2Y4pRIyrpPMWhb68+mcVdRUa+ylr9cNY7aaPOlqSgEq3FT9Kid6z8UJPeoweRln94trpXCIfyTDjDluZbVtd9hOB05NNVS0Ozabw3k5dF61T6Dm0f+jZAn8PZc0QMavNo5dCmVxFliuOvGP5TbNwaakisF/k03czquV6TBJ3YFSxMdCTT4/BrZMR8Mf+nRUbm9Xdc485/1dDBUpt1zqGArzbWGfwcq7R85HhHxCOt+hhmMH0150P4c6XZpTazHcBK5MBj6tikPtRDHk46bCcnd+pXe5errX+F23lmEKEPUhwF72ERr4MpxsNsaNZ99C1HYyjzT544fdAk7k1uRiNf8Fm5xejxWSqql2K1ob02QfyIts1tw5hQqKNhftcT8oDScM1T2DA5k/fhdSDU6VJf2s7/FbiXYAw/XFQbmodxYS91i2AkcFcqR8bJsH/JxBDrLxxBzOvKjXaI2RIcLyT+C9/dV6nhx/Yei/wod2gNqUojWiznKn2KN99vNA3NYGE4HzKFpLUAgHfmYKDJ6s33ZRUU8PWFsX+ROT8x+cq5UtX0eb/UaH3Bl5WHE3fSs8aLC4+xgHx3ah1pzV3K8D4+IrrCA078x5ypncG9A6aEdJPOpMa9u7z6CEmmQMnl1QObG9eIh2qoXtIytcjtJDgmDtutPZIq4VdyrWEKreKfRZfPB2taiZDrMAzcs62S05bs2PcNZ+MzMRScp1X89cHDZ+5Ok/G63ybL3kepab31vKzZAOyTK2AERpJBJekIg0biwTsciOdvQQ6rOz9zrk+G04J6wHEJW3UqidXCQm+6u67JXz0TCYlTuAruhRaFTIMlAA3ceVziVDeAOijMog9sroQ5QQ8fLK6rNAGonBu2B+wnnyTHWA0bf+QEkoDupkuftK5maaIf5r4fUzV6rIrKFesL4qhtFiisrrPwLOhO+1npaWPpfsmWyOH20v+oUxlyFiE1ZbDfhbqMUY//ya0XGN+AGUVcFeqYkLUqEOf/C03BT/eYexkio+Qyr9lsAra43EiUsASndAc3pqBxXb2jbaR1tVbdO9UjrBITLyWI+hQvoxSan6M6bKr3y5kL"};
+
+var gate=document.getElementById("gate"), form=document.getElementById("gateForm"),
+    pw=document.getElementById("pw"), btn=document.getElementById("gateBtn"),
+    msg=document.getElementById("gateMsg"), app=document.getElementById("app");
+
+function b64(str){
+  var bin=atob(str), arr=new Uint8Array(bin.length);
+  for(var i=0;i<bin.length;i++)arr[i]=bin.charCodeAt(i);
+  return arr;
+}
+function sag(text,fehler){ msg.textContent=text; msg.className="msg"+(fehler?" err":""); }
+
+if(!(window.crypto&&window.crypto.subtle)){
+  sag("Dieser Browser kann die Datei nicht entschlüsseln. Bitte in Chrome, Edge, Firefox oder "+
+      "Safari öffnen.",true);
+  btn.disabled=true;
+}
+
+form.addEventListener("submit",function(ev){
+  ev.preventDefault();
+  if(btn.disabled)return;
+  btn.disabled=true; sag("Wird entschlüsselt …",false);
+  setTimeout(function(){ oeffnen(pw.value); },20);
+});
+
+function oeffnen(passwort){
+  var enc=new TextEncoder();
+  crypto.subtle.importKey("raw",enc.encode(passwort),"PBKDF2",false,["deriveKey"])
+  .then(function(km){
+    return crypto.subtle.deriveKey(
+      {name:"PBKDF2",salt:b64(DATEN.salt),iterations:DATEN.iter,hash:"SHA-256"},
+      km,{name:"AES-GCM",length:256},false,["decrypt"]);
+  })
+  .then(function(key){
+    return crypto.subtle.decrypt({name:"AES-GCM",iv:b64(DATEN.iv)},key,b64(DATEN.ct));
+  })
+  .then(function(klar){
+    var jahre=JSON.parse(new TextDecoder().decode(klar));
+    gate.remove();
+    app.hidden=false;
+    boot(jahre);
+  })
+  .catch(function(){
+    btn.disabled=false;
+    sag("Passwort falsch.",true);
+    pw.value=""; pw.focus();
+  });
+}
+pw.focus();
 })();
 </script>
 </body>
